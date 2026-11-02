@@ -65,6 +65,10 @@ function mergePair(left: Node, right: Node): Node | undefined {
   return undefined
 }
 
+export function canMergeTerms(left: Node, right: Node): boolean {
+  return mergePair(left, right) !== undefined
+}
+
 export function mergeTermsAt(side: OpNode, first: number, second: number): boolean {
   if (
     !Number.isInteger(first) ||

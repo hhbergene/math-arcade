@@ -1,7 +1,8 @@
 import type { Equation } from '../model/equation'
 import { isOp, type Node, type OpNode } from '../model/node'
 import { nodeSign, positiveForDisplay } from '../model/prettyPrint'
-import { hasSameStructure, keepsSignInFirstFactor, renderNode } from './renderNode'
+import type { FractionCancellation } from '../engine/actions'
+import { addMultiplicationTargets, hasSameStructure, keepsSignInFirstFactor, renderNode } from './renderNode'
 
 function isWholeSideFraction(expression: OpNode): boolean {
   return expression.operands.length === 1 && isOp(expression.operands[0], 'div')
@@ -10,6 +11,7 @@ function isWholeSideFraction(expression: OpNode): boolean {
 function renderSide(
   side: 'left' | 'right',
   expression: OpNode,
+  cancellations: readonly FractionCancellation[] = [],
 ): HTMLElement {
   const area = document.createElement('section')
   area.className = 'equation-side'
@@ -22,17 +24,18 @@ function renderSide(
     term.dataset.side = side
     term.dataset.index = '0'
     term.dataset.termIndex = '0'
-    term.setAttribute('aria-label', 'Brøkledd; dra for å flytte over likhetstegnet')
+    term.setAttribute('aria-label', 'Brøkledd; dra for å flytte over likhetstegnet, eller klikk på to brikker for å regne')
     term.append(renderNode(expression.operands[0], {
       side,
       termIndex: 0,
       path: [],
+      cancellations,
     }))
     const topFraction = term.querySelector<HTMLElement>(':scope > .fraction')
-    topFraction?.querySelector<HTMLElement>(':scope > .numerator > .multiply-drop-target')
-      ?.setAttribute('data-whole-side', 'true')
-    topFraction?.querySelector<HTMLElement>(':scope > .denominator')
-      ?.append(divisionTarget(side))
+    topFraction?.querySelectorAll<HTMLElement>(':scope > .numerator > .multiply-drop-target')
+      .forEach((target) => target.setAttribute('data-whole-side', 'true'))
+    topFraction?.querySelectorAll<HTMLElement>(':scope > .denominator > .division-drop-target')
+      .forEach((target) => target.setAttribute('data-whole-side', 'true'))
     area.append(term)
     return area
   }
@@ -41,12 +44,9 @@ function renderSide(
   fraction.className = 'side-fraction division-preview'
   const terms = document.createElement('div')
   terms.className = 'equation-terms'
-  const multiplyTarget = document.createElement('span')
-  multiplyTarget.className = 'multiply-drop-target'
-  multiplyTarget.dataset.side = side
-  multiplyTarget.dataset.wholeSide = 'true'
-  multiplyTarget.setAttribute('aria-label', 'Slipp her for å gange begge sider med faktoren')
-  terms.append(multiplyTarget)
+  terms.dataset.side = side
+  addMultiplicationTargets(terms, { side, wholeSide: 'true' })
+  if (expression.operands.length > 1) terms.classList.add('multiplication-sum')
 
   if (expression.operands.length === 0) {
     terms.append(renderNode({ kind: 'num', value: 0 }))
@@ -60,7 +60,10 @@ function renderSide(
         token.className = `equation-operator${canMerge ? ' operator-tile' : ''}`
         if (canMerge) {
           token.setAttribute('type', 'button')
-          token.setAttribute('aria-label', `Slå sammen ledd ${index} og ${index + 1}`)
+          token.setAttribute(
+            'aria-label',
+            `Klikk for å slå sammen ledd ${index} og ${index + 1}; fortegnet tilhører ledd ${index + 1} ved drag`,
+          )
           token.dataset.side = side
           token.dataset.leftTerm = String(index - 1)
           token.dataset.rightTerm = String(index)
@@ -74,10 +77,14 @@ function renderSide(
       wrapper.dataset.side = side
       wrapper.dataset.index = String(index)
       wrapper.dataset.termIndex = String(index)
-      wrapper.setAttribute('aria-label', `Ledd ${index + 1}; dra for å flytte over likhetstegnet`)
+      if (term.kind === 'num') wrapper.dataset.termValue = String(term.value)
+      wrapper.setAttribute(
+        'aria-label',
+        `Ledd ${index + 1}; dra mellom ledd for å flytte, til et likeartet ledd for å regne sammen, eller over likhetstegnet for å bytte fortegn`,
+      )
       const displayedTerm = sign === -1 ? positiveForDisplay(term) : term
       const context = hasSameStructure(term, displayedTerm)
-        ? { side, termIndex: index, path: [] }
+        ? { side, termIndex: index, path: [], cancellations }
         : undefined
       wrapper.append(renderNode(displayedTerm, context))
       terms.append(wrapper)
@@ -102,15 +109,18 @@ function divisionTarget(side: 'left' | 'right'): HTMLElement {
   return target
 }
 
-export function renderEquationRow(equation: Equation): HTMLElement {
+export function renderEquationRow(
+  equation: Pick<Equation, 'left' | 'right'>,
+  cancellations: readonly FractionCancellation[] = [],
+): HTMLElement {
   const row = document.createElement('div')
   row.className = 'equation-row'
-  row.append(renderSide('left', equation.left))
+  row.append(renderSide('left', equation.left, cancellations))
 
   const equals = document.createElement('span')
   equals.className = 'equals-token'
   equals.textContent = '='
   equals.setAttribute('aria-label', 'er lik')
-  row.append(equals, renderSide('right', equation.right))
+  row.append(equals, renderSide('right', equation.right, cancellations))
   return row
 }

@@ -14,6 +14,10 @@
   --warning-color: #b43c3c;
   --highlight-color: #fff0b4;
   --shadow: 0 8px 24px rgb(23 35 62 / 8%);
+  --cursor-pointer: pointer;
+  --cursor-grab: pointer;
+  --cursor-grabbing: pointer;
+  --cursor-text: text;
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   color: var(--text-color);
   background: var(--background-color);

@@ -56,8 +56,8 @@ export function createEquation(source?: string): Equation {
   } while (true)
 
   const equation = new Equation(
-    op('add', [makeXTerm(a), num(b)]),
-    op('add', [makeXTerm(c), num(d)]),
+    op('add', b === 0 ? [makeXTerm(a)] : [makeXTerm(a), num(b)]),
+    op('add', d === 0 ? [makeXTerm(c)] : [makeXTerm(c), num(d)]),
     solution,
   )
   equation.history.record(equation, strings.newEquationHistory)
